@@ -1,0 +1,168 @@
+# codetech-task-1-house-price
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+%matplotlib inline
+import seaborn as sns
+
+import warnings
+warnings.filterwarnings("ignore")
+df1=pd.read_csv('/content/Bengaluru_House_Data.csv')
+df1.info()
+
+df1.isnull().sum()
+df1.area_type.value_counts()
+df1.availability.unique()
+df1.availability.value_counts()
+def handle_availability(value):
+    try:
+        return value.split('-')[1]
+    except:
+        return value
+df1['availability']=df1.availability.apply(handle_availability)
+df1.availability.value_counts()
+
+def handle_availability2(value):
+
+    if value in ['Jan','Feb','Mar']:
+        return 'Q1'
+    elif value in ['Apr','May','Jun']:
+        return 'Q2'
+    elif value in ['Jul','Aug','Sep']:
+        return 'Q3'
+    elif value in ['Oct','Nov','Dec']:
+        return 'Q4'
+    else:
+        return value
+df1['availability']=df1.availability.apply(handle_availability2)
+df1.availability.value_counts()
+df1.location.value_counts()
+
+df1.location.nunique()
+# too many unique values
+location_counts = df1['location'].value_counts(ascending = False)
+location_under_10 = location_counts[location_counts<= 10 ]
+location_under_10
+df1.location = df1.location.apply(lambda x: 'other' if x in location_under_10 else x)
+df1.location.value_counts()
+df1.location.nunique()
+# we were able to reduce the number of unique values.
+df1['size'].value_counts()
+def size_num(value):
+    try:
+        return int(value.split(' ')[0])
+    except:
+        return value
+
+def size_category(value):
+    try:
+        return value.split(' ')[1]
+    except:
+        return value
+df1['size_num']=df1['size'].apply(size_num)
+
+df1['size_category']=df1['size'].apply(size_category)
+df1.head()
+df1.drop(columns='size',inplace=True)
+df1.info()
+df1['size_num'].value_counts()
+sns.boxplot(data=df1,x='size_num')
+df1[df1['size_num']>4]['size_num']
+df1.info()
+df1.isnull().sum()
+df1=df1[df1['size_num']<=4]
+df1.size_num.value_counts()
+
+df1.size_category.value_counts()
+df1.society.value_counts()
+df1.society.nunique()
+df1.society.isnull().sum()
+df1.drop(columns='society',inplace=True)
+df1.info()
+
+df1.total_sqft.unique()
+df1.total_sqft.value_counts()
+
+import re
+def handle_total_sqft(value):
+    str(value)
+    l=re.findall(r"[-+]?(?:\d*\.*\d+)",value)
+    try:
+        return (float(l[0])+float(l[1]))/2
+
+    except:
+        return float(l[0])
+df1['total_sqft']=df1.total_sqft.apply(handle_total_sqft)
+df1.total_sqft.value_counts()
+
+sns.boxplot(data=df1,x='total_sqft')
+df1.total_sqft.min()
+df1.total_sqft.max()
+Q1=np.quantile(df1['total_sqft'],0.25)
+Q3=np.quantile(df1['total_sqft'],0.75)
+
+iqr=Q3-Q1
+
+ul=Q3+1.5*iqr
+
+ll=Q1-1.5*iqr
+ll
+
+ul
+df1=df1[(df1['total_sqft']<=ul) & (df1['total_sqft']>=ll)]
+df1
+df1.bath.value_counts()
+sns.boxplot(data=df1,x='bath')
+
+df1.isnull().sum()
+df1[df1['bath']>4]['bath'].count()
+df1=df1[df1['bath']<4]
+df1
+
+df1.balcony.value_counts()
+sns.boxplot(data=df1, x='balcony')
+df1.isnull().sum()
+df1.info()
+df1.dropna(inplace=True)
+df1.info()
+
+multi linear
+df1
+
+df_new=pd.get_dummies(data=df1,columns=['location','size_category','availability','area_type'])
+df_new.head()
+x=list(df_new.columns)
+x.remove('price')# to remove price from the list of names
+x.append('price')
+# to add the price at the very last of the list as it will make splitting easy
+
+df1_final=df_new[x]
+df1_final.head()
+X=df1_final.iloc[:,:-1]
+y=df1_final.iloc[:,-1]
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)
+from sklearn.linear_model import LinearRegression
+regressor = LinearRegression()
+regressor.fit(X_train, y_train)
+y_pred = regressor.predict(X_test)
+from sklearn import metrics
+print('RMSE = ',np.sqrt(metrics.mean_squared_error(y_test,y_pred)))
+df1.price.max()
+df1.price.min()
+print(regressor.coef_)#coefficients
+print(regressor.intercept_)#intercepts
+y_pred
+y_pred=pd.DataFrame(y_pred)
+y_pred
+y_pred.rename(columns={0:'pred_price'},inplace=True) # renaming the column
+y_test=pd.DataFrame(y_test)
+y_test=y_test.reset_index(drop=True)
+#resetting the index as the indexs ae copied as it is while train test split.
+y_comparison=pd.concat([y_pred,y_test],axis=1)
+y_comparison.rename(columns={'price':'test_price'})
+
+# prompt: final house prediction accuacy
+
+print('RMSE = ',np.sqrt(metrics.mean_squared_error(y_test,y_pred)))
